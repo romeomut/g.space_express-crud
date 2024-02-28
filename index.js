@@ -2,6 +2,12 @@ const express = require("express")
 const bodyParse = require("body-parser")
 const app = express()
 
+//
+
+const sqlite3 = require('sqlite3').verbose()
+const dbName = 'tasks.db'
+const db = new sqlite3.Database(dbName)
+
 const port = 3000
 
 let tasks = [
@@ -31,9 +37,15 @@ app.use(bodyParse.json())
 
 //////////////////////////////////////
 
-const checkExist = (task, id, res) =>{
+const checkExist = (task, id, res) => {
     if (!task) {
         return res.status(404).json({message: `not found task with id ${id}`})
+    }
+}
+
+const serverError = (err, res) => {
+    if(err){
+        return res.status(500).json({error: err.message})
     }
 }
 
@@ -46,15 +58,31 @@ app.get('/', (req, res) =>{
 //
 
 app.get('/tasks', (req, res) =>{
-    res.status(200).json(tasks)
+    //array
+    //res.status(200).json(tasks)
+
+    //db
+    db.all('SELECT * FROM tasks', (err, rows) =>{      
+        serverError(err, res)
+        return res.status(200).json(rows)
+    })
 })
 
 //
 
 app.post('/tasks', (req, res) =>{
     const newTask = req.body
-    tasks.push(newTask)
-    res.status(201).json(newTask)
+    
+    //array
+    //tasks.push(newTask)
+    //res.status(201).json(newTask)
+
+    //db
+    db.run('INSERT INTO tasks (text) VALUES (?)', [newTask.text], (err) => {
+        serverError(err, res)
+        return res.status(201).json({id: this.lastID})
+    })
+
 })
 
 //
@@ -62,11 +90,17 @@ app.post('/tasks', (req, res) =>{
 app.get('/tasks/:id', (req, res) =>{
     const taskId = parseInt(req.params.id)
 
-    const foundTask = tasks.find((e) => e.id === taskId)
+    //array
+    //const foundTask = tasks.find((e) => e.id === taskId)
+    //checkExist(foundTask, taskId, res)
+    //return res.status(200).json(foundTask)
 
-    checkExist(foundTask, taskId, res)
-
-    return res.status(200).json(foundTask)
+    //bd
+    db.get('SELECT * FROM tasks WHERE id = ?', taskId, (err, row) => {
+        serverError(err, res)
+        checkExist(row, taskId, res)
+        return res.status(200).json(row)
+    })  
 })
 
 //
@@ -75,13 +109,16 @@ app.put('/tasks/:id', (req, res) =>{
     const updateTask = req.body
     const taskId = parseInt(req.params.id)
 
-    const foundTask = tasks.find((e) => e.id === taskId)
+    //array
+    //const foundTask = tasks.find((e) => e.id === taskId)
+    //checkExist(foundTask, taskId, res)
+    //foundTask.text = updateTask.text
 
-    checkExist(foundTask, taskId, res)
-
-    foundTask.text = updateTask.text
-
-    return res.status(200).json(foundTask)
+    //bd
+    db.run('UPDATE tasks SET text = ? WHERE id = ?', [updateTask.text, taskId], (err) =>{
+        serverError(err, res)
+        return res.status(200).json({id: taskId, text: updateTask.text})
+    })
 })
 
 //
@@ -89,9 +126,15 @@ app.put('/tasks/:id', (req, res) =>{
 app.delete('/tasks/:id', (req, res) =>{
     const taskId = parseInt(req.params.id)
 
-    tasks = tasks.filter((e) => e.id !== taskId)
+    //array
+    //tasks = tasks.filter((e) => e.id !== taskId)
+    //return res.status(204).json(tasks)
 
-    return res.status(204).json(tasks)
+    //db
+    db.run('DELETE FROM tasks WHERE id = ?', taskId, (err) => {
+        serverError(err, res)
+        return res.status(204).send()
+    })
 })
 
 //////////////////////////////////////
